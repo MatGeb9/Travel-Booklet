@@ -15,6 +15,7 @@ const dayOf = n => DAYS.find(d => d.n === n);
 const cityColor = c => (CITIES.find(x => x.key === c) || {}).color || "#7B8494";
 const tagHTML = t => t ? `<span class="tag ${TAGS[t] || "mute"}">${esc(t)}</span>` : "";
 const stepLabel = it => it.t ? fmtHour(it.t) : (it.label || "");
+const mapsURL = q => "https://maps.apple.com/?q=" + encodeURIComponent(q);
 // Un tableau [colonne1, colonne2, …] rendu en lignes empilées : titre, puis le reste
 // en une ligne grise. Seul format lisible sur un écran de téléphone.
 const listRows = (rows, fmt) => `<div class="card">${rows.map((r, i) => `
@@ -133,7 +134,10 @@ function dayBodyHTML(day, m) {
         <div class="row">
           <div class="grow">${flag}<div class="title">${esc(it.title)}</div>
             ${it.tag ? `<div style="margin-top:5px">${tagHTML(it.tag)}</div>` : ""}</div>
-          <button class="tick ${done ? "on" : ""}" data-action="tick" data-id="${it.id}">✓</button>
+          <div class="acts">
+            ${it.place ? `<a class="pin" href="${mapsURL(it.place)}" target="_blank" rel="noopener" data-action="map" title="Ouvrir dans Plans">📍</a>` : ""}
+            <button class="tick ${done ? "on" : ""}" data-action="tick" data-id="${it.id}">✓</button>
+          </div>
         </div>
         <div class="text${it.id === m.now || it.id === m.next ? "" : " clamp"}">${esc(it.text)}</div>
       </div></div>`;
@@ -212,7 +216,8 @@ function viewPrep() {
   return `<header class="head"><div><div class="eyebrow">Le dossier</div><h1>Pratique</h1></div>
       <button class="link" data-action="search">🔍</button></header>
     <div class="scroll">
-      <h2>Réservations à prendre</h2>${todos}
+      <h2>Réservations à prendre</h2>
+      <p class="sub" style="margin:-2px 4px 8px">Déjà réservé de votre côté ? Touchez le ✓ : la ligne se barre et l'alerte rouge de l'écran « Aujourd'hui » disparaît.</p>${todos}
       <h2>Avant de partir</h2>${prep}
       <h2>Ce qui est verrouillé</h2>${booked}
       <h2>Les choix à faire</h2>${choices}
@@ -246,7 +251,9 @@ function showCard(han, fr, sub) {
   const m = document.createElement("div"); m.className = "show"; m.id = "showcard";
   m.innerHTML = `<button class="close" data-action="close-show">Fermer</button>
     <div class="han">${esc(han)}</div><div class="fr">${esc(fr)}</div><div class="sub">${esc(sub)}</div>
-    <button class="copy" data-action="copy" data-han="${esc(han)}">Copier pour Amap</button>`;
+    <div class="showacts">
+      <a class="copy" href="${mapsURL(han)}" target="_blank" rel="noopener" data-action="map">📍 Plans</a>
+      <button class="copy" data-action="copy" data-han="${esc(han)}">Copier pour Amap</button></div>`;
   document.body.appendChild(m);
 }
 
@@ -316,6 +323,7 @@ document.addEventListener("click", e => {
   const a = el.dataset.action, id = el.dataset.id;
 
   if (a === "stop") return;
+  if (a === "map") { e.stopPropagation(); return; }   // laisse l'ancre ouvrir Plans
   if (a === "close-modal") return document.querySelector(".modal")?.remove();
   if (a === "close-show") return document.getElementById("showcard")?.remove();
   if (a === "search") return openSearch();
@@ -357,6 +365,10 @@ function openStep(id) {
       <button class="link strong" data-action="close-modal">Fermer</button></div>
     ${it.tag ? `<div style="margin-top:8px">${tagHTML(it.tag)}</div>` : ""}
     <p>${esc(it.text)}</p>
+    ${it.place ? `<div class="row" style="gap:8px;margin-top:12px">
+      <a class="btn primary grow" style="text-align:center;text-decoration:none" href="${mapsURL(it.place)}" target="_blank" rel="noopener" data-action="map">📍 Ouvrir dans Plans</a>
+      <button class="btn" data-action="copy" data-han="${esc(it.place)}">Copier</button></div>
+      <div class="dim" style="margin-top:6px">Recherché : ${esc(it.place)}</div>` : ""}
     <button class="btn big ${done ? "" : "primary"}" data-action="tick" data-id="${id}">${done ? "✓ Fait — décocher" : "Marquer comme fait"}</button>
   </div>`;
   document.body.appendChild(m);
