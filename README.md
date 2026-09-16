@@ -125,14 +125,19 @@ que pour **Muscu** et **Atlas**.
 Il y a **deux stockages, et ils ne se mélangent jamais**. C'est ce qui rend le
 multi-voyage simple à venir.
 
-### 1. Le contenu du carnet — lecture seule, vient du dépôt
+### 1. Le contenu des carnets — lecture seule, vient du dépôt
 
-Les jours, les étapes, les adresses, le budget : tout est dans `js/data.js` et
-`js/days.js`, importé au démarrage et mis en cache par le service worker.
-**L'app n'écrit jamais dedans.** Corriger un horaire, c'est un commit.
+Un fichier JSON par voyage dans `trips/`, plus `trips/index.json` qui les liste.
+C'est de la **donnée pure, jamais du code** : un carnet produit depuis un PDF ne
+peut rien exécuter. Le service worker les met en cache, donc tout reste
+consultable hors-ligne. **L'app n'écrit jamais dedans.**
 
-`TRIP.id` (`"chine-2026-09"`) identifie le voyage. Il sert déjà à ranger les
-photos — pour qu'ajouter un deuxième carnet plus tard ne demande pas d'y retoucher.
+Ajouter un voyage = déposer un `trips/<id>.json` et une ligne dans le manifeste.
+Rien d'autre à toucher.
+
+L'app ouvre le carnet que vous consultiez la dernière fois s'il existe encore,
+sinon celui qui contient aujourd'hui, sinon le prochain. **Les archives se
+déduisent des dates** — pas de drapeau à tenir à jour, donc rien qui puisse mentir.
 
 ### 2. Vos traces — lecture/écriture, restent sur l'appareil
 
@@ -140,7 +145,7 @@ Rien ne part sur le réseau. Deux technologies, pour une raison précise :
 
 | | Où | Pourquoi |
 |---|---|---|
-| coches, notes, jour épinglé | `localStorage["carnet.chine.v1"]` | petit, texte, synchrone |
+| coches, notes, dépenses, arbitrages | `localStorage["carnet.v2"]`, rangé par `tripId` | petit, texte, synchrone |
 | photos | IndexedDB `carnet` | `localStorage` plafonne à ~5 Mo et ne stocke que du texte |
 
 La base `carnet` a deux magasins : `photos` porte la vignette (~40 Ko) et les
@@ -177,13 +182,8 @@ qui enverrait chercher le mauvais problème.
 > ramenées à 1600 px en entrant — sans ça, deux cents photos d'iPhone feraient un
 > export d'un gigaoctet, inexploitable.
 
-### Ce qu'il faudra pour plusieurs voyages
+### La migration depuis l'ancien format
 
-Rien de tout ceci n'est à jeter. Il faudra :
-
-1. fusionner `data.js` + `days.js` en un `trips/<id>.json` par voyage, plus un manifeste ;
-2. imbriquer le `localStorage` par `tripId` (avec migration de l'existant) ;
-3. passer le voyage en paramètre à `clock.js` au lieu de l'importer ;
-4. un sélecteur de voyage — les archives se déduisent des dates, pas d'un drapeau.
-
-Les photos, elles, sont déjà au bon format.
+L'ancienne clé mono-voyage `carnet.chine.v1` est reprise au premier démarrage et
+rangée sous `chine-2026-09`. **Elle n'est jamais supprimée** : en cas de pépin,
+les coches et les notes d'origine sont encore là. La migration ne se rejoue pas.
