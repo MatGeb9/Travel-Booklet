@@ -38,6 +38,10 @@ un chauffeur de Didi. « Copier pour Amap » met les caractères dans le
 presse-papier — le PDF le dit lui-même : une adresse en alphabet latin ne sert
 à rien.
 
+**📷 Photos** — un bouton 📷 sur chaque étape. Les photos s'affichent en vignettes
+sous l'étape, s'ouvrent en plein écran, et partent dans l'export. Elles sont
+redimensionnées à 1600 px en entrant : un carnet de quinze jours reste transportable.
+
 **🔍 Recherche** (l'icône en haut à droite) — cherche dans *tout* le carnet d'un
 coup : les 15 jours, les pages par ville, le pratique, les cartes. Tapez
 `hot pot`, `passeport`, `Wulong`, `spa` et allez droit au bon endroit. C'est ce
@@ -114,8 +118,61 @@ que pour **Muscu** et **Atlas**.
 
 ---
 
-## Sauvegarde
+## Comment les données sont rangées
 
-Les coches et les notes vivent dans le `localStorage` de cet appareil. *Pratique
-→ Sauvegarde* exporte un fichier JSON (à ranger dans Fichiers / iCloud) et le
-réimporte sur un autre appareil. Rien n'est envoyé nulle part.
+Il y a **deux stockages, et ils ne se mélangent jamais**. C'est ce qui rend le
+multi-voyage simple à venir.
+
+### 1. Le contenu du carnet — lecture seule, vient du dépôt
+
+Les jours, les étapes, les adresses, le budget : tout est dans `js/data.js` et
+`js/days.js`, importé au démarrage et mis en cache par le service worker.
+**L'app n'écrit jamais dedans.** Corriger un horaire, c'est un commit.
+
+`TRIP.id` (`"chine-2026-09"`) identifie le voyage. Il sert déjà à ranger les
+photos — pour qu'ajouter un deuxième carnet plus tard ne demande pas d'y retoucher.
+
+### 2. Vos traces — lecture/écriture, restent sur l'appareil
+
+Rien ne part sur le réseau. Deux technologies, pour une raison précise :
+
+| | Où | Pourquoi |
+|---|---|---|
+| coches, notes, jour épinglé | `localStorage["carnet.chine.v1"]` | petit, texte, synchrone |
+| photos | IndexedDB `carnet` | `localStorage` plafonne à ~5 Mo et ne stocke que du texte |
+
+La base `carnet` a deux magasins : `photos` porte la vignette (~40 Ko) et les
+métadonnées, `full` porte l'image à 1600 px (~300 Ko). Au démarrage on ne lit que
+les vignettes — charger toutes les images pleine taille pour dessiner une journée
+serait absurde. L'image complète n'est lue qu'à l'ouverture de la visionneuse.
+
+Chaque photo porte `{ tripId, stepId, dayDate }` : elle est attachée à une étape
+précise, dans un voyage précis.
+
+### L'export
+
+*Pratique → Sauvegarde* produit **un seul fichier `.json`**, comme Atlas : les
+coches, les notes, et les photos converties en base64 (`data:image/jpeg;base64,…`).
+L'import fait le chemin inverse et réinjecte les images dans IndexedDB.
+
+L'app réclame le stockage persistant au démarrage (`navigator.storage.persist()`),
+demande à iOS de ne pas évincer les photos sous pression disque, et affiche dans
+*Pratique → Sauvegarde* la place occupée et le nombre de photos encore possibles.
+Si l'appareil est plein, l'ajout le dit explicitement — et non « photo illisible »,
+qui enverrait chercher le mauvais problème.
+
+> Le base64 gonfle d'environ un tiers. Deux photos font ~0,9 Mo ; comptez donc
+> autour de **0,4 Mo par photo**. C'est précisément pour ça que les images sont
+> ramenées à 1600 px en entrant — sans ça, deux cents photos d'iPhone feraient un
+> export d'un gigaoctet, inexploitable.
+
+### Ce qu'il faudra pour plusieurs voyages
+
+Rien de tout ceci n'est à jeter. Il faudra :
+
+1. fusionner `data.js` + `days.js` en un `trips/<id>.json` par voyage, plus un manifeste ;
+2. imbriquer le `localStorage` par `tripId` (avec migration de l'existant) ;
+3. passer le voyage en paramètre à `clock.js` au lieu de l'importer ;
+4. un sélecteur de voyage — les archives se déduisent des dates, pas d'un drapeau.
+
+Les photos, elles, sont déjà au bon format.

@@ -1,11 +1,11 @@
 // Service worker — cache + mise à jour automatique (stale-while-revalidate).
 // Sert le cache instantanément (donc : marche sans réseau, sans VPN, sans eSIM) et récupère
 // la version fraîche en arrière-plan → la mise à jour apparaît au chargement suivant.
-const CACHE = "carnet-chine-v2";
+const CACHE = "carnet-chine-v4";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
-  "./js/app.js", "./js/data.js", "./js/days.js", "./js/store.js", "./js/clock.js",
+  "./js/app.js", "./js/data.js", "./js/days.js", "./js/store.js", "./js/clock.js", "./js/photos.js",
   "./manifest.webmanifest",
   "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-1024.png",
 ];
