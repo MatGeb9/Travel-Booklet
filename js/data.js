@@ -4,6 +4,7 @@
 export const BUILD = "v1";
 
 export const TRIP = {
+  id: "chine-2026-09",          // identifiant stable : range les photos et, plus tard, les carnets
   title: "Chine",
   han: "中国",
   subtitle: "Shanghai · Chongqing · Chengdu · Xi'an",

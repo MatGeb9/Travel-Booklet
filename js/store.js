@@ -32,11 +32,17 @@ export function setNote(date, txt) {
 export const getPinnedDay = () => load().pinnedDay;
 export function setPinnedDay(n) { const d = load(); d.pinnedDay = n; save(); }
 
-export function exportJSON() { return JSON.stringify({ ...load(), exportedAt: new Date().toISOString() }, null, 2); }
+// L'export embarque les photos en base64, comme Atlas : un seul fichier à ranger.
+export function exportJSON(photos) {
+  return JSON.stringify({ ...load(), photos: photos || [], exportedAt: new Date().toISOString() }, null, 2);
+}
+// Renvoie les photos trouvées dans le fichier ; l'appelant les réinjecte dans IndexedDB.
 export function importJSON(txt) {
   const o = JSON.parse(txt);
   if (!o || typeof o !== "object") throw new Error("Fichier illisible");
-  cache = { ...DEFAULT(), ...o };
+  const { photos, ...rest } = o;
+  cache = { ...DEFAULT(), ...rest };
   save();
+  return photos || [];
 }
 export function reset() { cache = DEFAULT(); save(); }

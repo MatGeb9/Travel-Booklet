@@ -4,6 +4,7 @@
 import { TRIP, TAGS, CITIES, BOOKED, TODOS, PREP, GUIDES, CHOICES, SHOPPING, BUDGET, PHRASES, BUILD } from "./data.js";
 import { DAYS } from "./days.js";
 import * as store from "./store.js";
+import * as photos from "./photos.js";
 import { tripPosition, toMinutes, fmtHour, daysBetween } from "./clock.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -68,6 +69,8 @@ function renderTabbar() {
 }
 
 // ---------- AUJOURD'HUI ----------
+const shotCount = day => day.items.reduce((a, i) => a + photos.countForStep(i.id), 0);
+
 function viewToday() {
   const n = currentDay(), day = dayOf(n), p = tripPosition(), m = marks(day);
   const total = day.items.length;
@@ -85,7 +88,7 @@ function viewToday() {
     <div class="when">${esc(day.dow)}</div>
     <div class="city" style="box-shadow:inset 0 0 0 1px ${cityColor(day.city)}55">${esc(day.city)}</div>
     <div class="prog"><i style="width:${total ? Math.round(done / total * 100) : 0}%"></i></div>
-    <div class="progtxt">${done} / ${total} étapes faites</div>
+    <div class="progtxt">${done} / ${total} étapes faites${shotCount(day) ? ` · ${shotCount(day)} photo${shotCount(day) > 1 ? "s" : ""}` : ""}</div>
   </div>`;
 
   const kpis = `<div class="kpis">${day.stats.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>`;
@@ -121,6 +124,14 @@ function alertsHTML(day) {
   return cards + rest;
 }
 
+// Les photos prises sur cette étape, en bande sous le texte.
+function shotsHTML(stepId) {
+  const list = photos.forStep(stepId);
+  if (!list.length) return "";
+  return `<div class="shots">${list.map(ph =>
+    `<img class="shot" src="${ph.url}" alt="" loading="lazy" data-action="viewphoto" data-id="${ph.id}">`).join("")}</div>`;
+}
+
 function dayBodyHTML(day, m) {
   const tips = day.tips.map(t => `<div class="tip"><h3>${esc(t.title)}</h3><p>${esc(t.text)}</p></div>`).join("");
   const steps = day.items.map(it => {
@@ -136,9 +147,11 @@ function dayBodyHTML(day, m) {
             ${it.tag ? `<div style="margin-top:5px">${tagHTML(it.tag)}</div>` : ""}</div>
           <div class="acts">
             ${it.place ? `<a class="pin" href="${mapsURL(it.place)}" target="_blank" rel="noopener" data-action="map" title="Ouvrir dans Plans">📍</a>` : ""}
+            <button class="pin cam" data-action="addphoto" data-id="${it.id}" data-date="${day.date}" title="Ajouter une photo">📷</button>
             <button class="tick ${done ? "on" : ""}" data-action="tick" data-id="${it.id}">✓</button>
           </div>
         </div>
+        ${shotsHTML(it.id)}
         <div class="text${it.id === m.now || it.id === m.next ? "" : " clamp"}">${esc(it.text)}</div>
       </div></div>`;
   }).join("");
@@ -224,7 +237,7 @@ function viewPrep() {
       <h2>Shopping</h2>${shop}
       <h2>Budget</h2>${budget}
       <h2>Sauvegarde</h2>
-      <div class="card"><div class="sub" style="line-height:1.5">Vos coches et vos notes vivent sur cet iPhone. Exportez de temps en temps dans Fichiers ou iCloud pour les retrouver ailleurs.</div>
+      <div class="card"><div class="sub" style="line-height:1.5">Vos coches, vos notes et vos photos vivent sur cet iPhone. Exportez de temps en temps dans Fichiers ou iCloud — le fichier contient les photos, il peut donc peser lourd.</div>
         <button class="btn big" data-action="export">Exporter mes notes</button>
         <button class="btn big" data-action="import">Importer une sauvegarde</button>
         <input type="file" id="importfile" accept="application/json,.json" hidden/>
@@ -339,6 +352,13 @@ document.addEventListener("click", e => {
   if (a === "tick-todo") { e.stopPropagation(); store.toggleTodo(id); return render(); }
   if (a === "todo") { state.tab = "prep"; return render(); }
   if (a === "step") return openStep(id);
+  if (a === "addphoto") { e.stopPropagation(); return pickPhoto(id, el.dataset.date); }
+  if (a === "viewphoto") { e.stopPropagation(); return viewPhoto(id); }
+  if (a === "delphoto") {
+    if (!confirm("Supprimer cette photo ?")) return;
+    return photos.remove(id).then(() => { document.getElementById("photoview")?.remove(); photos.releaseFull(); render(); toast("Photo supprimée"); });
+  }
+  if (a === "close-photo") { document.getElementById("photoview")?.remove(); return photos.releaseFull(); }
   if (a === "goday") return goDay(+el.dataset.n);
   if (a === "guide") { state.guide = +el.dataset.i; return render(); }
   if (a === "day-prev") return goDay(Math.max(1, currentDay() - 1));
@@ -347,7 +367,10 @@ document.addEventListener("click", e => {
   if (a === "export") return doExport();
   if (a === "import") return $("#importfile").click();
   if (a === "reset") {
-    if (confirm("Effacer toutes vos coches et vos notes ? Le carnet lui-même reste intact.")) { store.reset(); render(); toast("Remis à zéro"); }
+    if (confirm("Effacer vos coches, vos notes et vos photos ? Le carnet lui-même reste intact.")) {
+      store.reset();
+      photos.clear(TRIP.id).then(() => { render(); toast("Remis à zéro"); });
+    }
     return;
   }
 });
@@ -369,9 +392,45 @@ function openStep(id) {
       <a class="btn primary grow" style="text-align:center;text-decoration:none" href="${mapsURL(it.place)}" target="_blank" rel="noopener" data-action="map">📍 Ouvrir dans Plans</a>
       <button class="btn" data-action="copy" data-han="${esc(it.place)}">Copier</button></div>
       <div class="dim" style="margin-top:6px">Recherché : ${esc(it.place)}</div>` : ""}
+    ${shotsHTML(id)}
+    <button class="btn big" data-action="addphoto" data-id="${id}" data-date="${day.date}">📷 Ajouter une photo</button>
     <button class="btn big ${done ? "" : "primary"}" data-action="tick" data-id="${id}">${done ? "✓ Fait — décocher" : "Marquer comme fait"}</button>
   </div>`;
   document.body.appendChild(m);
+}
+
+// Un <input file> masqué, recréé à chaque fois : sur iOS il propose « Photothèque » et
+// « Prendre une photo ». Pas de `capture`, sinon on force l'appareil et on perd la
+// possibilité d'ajouter une photo déjà prise.
+function pickPhoto(stepId, dayDate) {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.hidden = true;
+  document.body.appendChild(inp);
+  inp.addEventListener("change", async () => {
+    const files = [...inp.files];
+    inp.remove();
+    if (!files.length) return;
+    toast(files.length > 1 ? `Ajout de ${files.length} photos…` : "Ajout de la photo…");
+    let ko = 0;
+    for (const f of files) {
+      try { await photos.add(TRIP.id, stepId, dayDate, f); }
+      catch (err) { ko++; }
+    }
+    document.querySelector(".modal")?.remove();
+    render();
+    toast(ko ? `${ko} photo(s) illisible(s)` : (files.length > 1 ? `${files.length} photos ajoutées` : "Photo ajoutée"));
+  });
+  inp.click();
+}
+
+async function viewPhoto(id) {
+  const url = await photos.fullURL(id);
+  if (!url) return toast("Photo introuvable");
+  const v = document.createElement("div"); v.className = "show"; v.id = "photoview";
+  v.innerHTML = `<button class="close" data-action="close-photo">Fermer</button>
+    <img class="fullshot" src="${url}" alt="">
+    <div class="showacts"><button class="copy" data-action="delphoto" data-id="${id}">Supprimer</button></div>`;
+  document.body.appendChild(v);
 }
 
 document.addEventListener("input", e => {
@@ -380,18 +439,30 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   if (e.target.id === "importfile" && e.target.files[0]) {
     const f = e.target.files[0], r = new FileReader();
-    r.onload = () => { try { store.importJSON(r.result); render(); toast("Sauvegarde importée"); } catch (err) { toast("Fichier illisible"); } };
+    r.onload = async () => {
+      try {
+        const shots = store.importJSON(r.result);
+        await photos.importAll(shots);
+        await photos.init(TRIP.id);
+        render();
+        toast(shots.length ? `Sauvegarde importée · ${shots.length} photo(s)` : "Sauvegarde importée");
+      } catch (err) { toast("Fichier illisible"); }
+    };
     r.readAsText(f);
   }
 });
-function doExport() {
-  const blob = new Blob([store.exportJSON()], { type: "application/json" });
+async function doExport() {
+  if (photos.total()) toast("Préparation de l'export…");
+  let shots = [];
+  try { shots = await photos.exportAll(TRIP.id); } catch (e) { toast("Photos illisibles, export des notes seules"); }
+  const blob = new Blob([store.exportJSON(shots)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `carnet-chine-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast("Export prêt — enregistrez-le dans Fichiers");
+  const mo = (blob.size / 1048576).toFixed(1);
+  toast(`Export prêt (${mo} Mo) — enregistrez-le dans Fichiers`);
 }
 // De retour au premier plan : l'heure a pu changer de créneau, voire de jour.
 document.addEventListener("visibilitychange", () => {
@@ -405,7 +476,9 @@ setInterval(() => {
 }, 60000);
 
 // ---------- démarrage ----------
-render();
+// On charge les vignettes avant de dessiner, pour que le rendu reste synchrone ensuite.
+// Si IndexedDB est indisponible (mode privé), on dessine quand même : l'app marche sans photos.
+photos.init(TRIP.id).catch(() => {}).then(render);
 // Même schéma que Muscu : dès qu'un nouveau service worker prend la main, on recharge une
 // fois — sinon la PWA iOS reste collée à l'ancienne version. Pas de reload à la 1re install.
 if ("serviceWorker" in navigator) {
