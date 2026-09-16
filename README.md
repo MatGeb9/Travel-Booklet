@@ -155,6 +155,12 @@ précise, dans un voyage précis.
 coches, les notes, et les photos converties en base64 (`data:image/jpeg;base64,…`).
 L'import fait le chemin inverse et réinjecte les images dans IndexedDB.
 
+L'app réclame le stockage persistant au démarrage (`navigator.storage.persist()`),
+demande à iOS de ne pas évincer les photos sous pression disque, et affiche dans
+*Pratique → Sauvegarde* la place occupée et le nombre de photos encore possibles.
+Si l'appareil est plein, l'ajout le dit explicitement — et non « photo illisible »,
+qui enverrait chercher le mauvais problème.
+
 > Le base64 gonfle d'environ un tiers. Deux photos font ~0,9 Mo ; comptez donc
 > autour de **0,4 Mo par photo**. C'est précisément pour ça que les images sont
 > ramenées à 1600 px en entrant — sans ça, deux cents photos d'iPhone feraient un

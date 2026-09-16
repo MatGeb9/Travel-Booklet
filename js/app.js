@@ -61,6 +61,7 @@ function render() {
   renderTabbar();
   app.querySelector(".scroll").scrollTop = keep;   // même écran -> on reste où on était
   lastView = key;
+  if (state.tab === "prep") refreshStorageLine();
 }
 function renderTabbar() {
   const tabs = [["today", "Aujourd'hui", "🧭"], ["days", "Jours", "📅"], ["guides", "Villes", "🏙️"], ["prep", "Pratique", "🎒"], ["phrases", "À montrer", "中"]];
@@ -237,6 +238,7 @@ function viewPrep() {
       <h2>Shopping</h2>${shop}
       <h2>Budget</h2>${budget}
       <h2>Sauvegarde</h2>
+      <div id="storage" class="dim" style="margin:-2px 4px 8px"></div>
       <div class="card"><div class="sub" style="line-height:1.5">Vos coches, vos notes et vos photos vivent sur cet iPhone. Exportez de temps en temps dans Fichiers ou iCloud — le fichier contient les photos, il peut donc peser lourd.</div>
         <button class="btn big" data-action="export">Exporter mes notes</button>
         <button class="btn big" data-action="import">Importer une sauvegarde</button>
@@ -411,14 +413,19 @@ function pickPhoto(stepId, dayDate) {
     inp.remove();
     if (!files.length) return;
     toast(files.length > 1 ? `Ajout de ${files.length} photos…` : "Ajout de la photo…");
-    let ko = 0;
+    let ok = 0, illisible = 0, plein = false;
     for (const f of files) {
-      try { await photos.add(TRIP.id, stepId, dayDate, f); }
-      catch (err) { ko++; }
+      try { await photos.add(TRIP.id, stepId, dayDate, f); ok++; }
+      catch (err) {
+        if (err && (err.name === "QuotaExceededError" || err.name === "NotEnoughSpace")) { plein = true; break; }
+        illisible++;
+      }
     }
     document.querySelector(".modal")?.remove();
     render();
-    toast(ko ? `${ko} photo(s) illisible(s)` : (files.length > 1 ? `${files.length} photos ajoutées` : "Photo ajoutée"));
+    if (plein) toast("Plus de place sur l'appareil. Exportez vos photos, puis effacez-en.");
+    else if (illisible) toast(`${illisible} photo(s) illisible(s)${ok ? ` · ${ok} ajoutée(s)` : ""}`);
+    else toast(ok > 1 ? `${ok} photos ajoutées` : "Photo ajoutée");
   });
   inp.click();
 }
@@ -475,9 +482,21 @@ setInterval(() => {
   render();
 }, 60000);
 
+// L'espace restant se lit de façon asynchrone : on l'écrit dans l'onglet Pratique
+// après coup, plutôt que de retarder tout le rendu pour une ligne d'information.
+async function refreshStorageLine() {
+  const el = $("#storage"); if (!el) return;
+  const e = await photos.estimate();
+  const n = photos.total();
+  const parts = [`${n} photo${n > 1 ? "s" : ""} sur cet appareil`];
+  if (e && e.quota) parts.push(`${(e.usage / 1048576).toFixed(0)} Mo utilisés · encore ~${e.reste} photos`);
+  el.textContent = parts.join(" · ");
+}
+
 // ---------- démarrage ----------
 // On charge les vignettes avant de dessiner, pour que le rendu reste synchrone ensuite.
 // Si IndexedDB est indisponible (mode privé), on dessine quand même : l'app marche sans photos.
+photos.requestPersist();
 photos.init(TRIP.id).catch(() => {}).then(render);
 // Même schéma que Muscu : dès qu'un nouveau service worker prend la main, on recharge une
 // fois — sinon la PWA iOS reste collée à l'ancienne version. Pas de reload à la 1re install.

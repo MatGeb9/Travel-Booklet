@@ -66,6 +66,28 @@ let meta = [];                       // enregistrements du magasin META, du voya
 const thumbURLs = new Map();         // id -> objectURL de la vignette
 let currentTrip = null;
 
+// iOS peut évincer le stockage d'un site sous pression disque. Une PWA installée sur
+// l'écran d'accueil obtient normalement la permission sans rien demander à l'utilisateur ;
+// on la réclame quand même, c'est la seule protection contre la perte des photos.
+export async function requestPersist() {
+  try {
+    if (!navigator.storage || !navigator.storage.persist) return null;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch (e) { return null; }
+}
+
+// Place occupée et place restante, en photos — pour que le plafond soit visible avant
+// de le heurter, pas au moment où l'ajout échoue.
+export async function estimate() {
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) return null;
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+    const PAR_PHOTO = 350 * 1024;          // ~300 Ko l'image + ~40 Ko la vignette
+    return { usage, quota, reste: Math.max(0, Math.floor((quota - usage) / PAR_PHOTO)) };
+  } catch (e) { return null; }
+}
+
 export async function init(tripId) {
   currentTrip = tripId;
   for (const u of thumbURLs.values()) URL.revokeObjectURL(u);
