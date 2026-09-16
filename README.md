@@ -38,7 +38,9 @@ un chauffeur de Didi. « Copier pour Amap » met les caractères dans le
 presse-papier — le PDF le dit lui-même : une adresse en alphabet latin ne sert
 à rien.
 
-**📷 Photos** — un bouton 📷 sur chaque étape. Les photos s'affichent en vignettes
+**📷 Photos** — un bouton 📷 sur chaque étape. Aucune limite par activité : la bande de
+vignettes défile. Le seul plafond est la place sur l'appareil (~340 Ko par photo), affichée
+dans *Pratique → Sauvegarde*. Les photos s'affichent en vignettes
 sous l'étape, s'ouvrent en plein écran, et partent dans l'export. Elles sont
 redimensionnées à 1600 px en entrant : un carnet de quinze jours reste transportable.
 
@@ -154,6 +156,15 @@ précise, dans un voyage précis.
 *Pratique → Sauvegarde* produit **un seul fichier `.json`**, comme Atlas : les
 coches, les notes, et les photos converties en base64 (`data:image/jpeg;base64,…`).
 L'import fait le chemin inverse et réinjecte les images dans IndexedDB.
+
+À l'import, l'app annonce ce que contient le fichier et laisse choisir :
+
+- **Fusionner** — additionne les deux carnets. Les coches s'ajoutent, les notes d'un
+  même jour sont conservées **toutes les deux** (séparées par un filet), les photos se
+  cumulent sans se dupliquer. C'est le mode pour tenir le carnet **à deux téléphones** :
+  chacun exporte, l'autre importe, et personne ne perd ce qu'il a saisi.
+- **Remplacer** — écrase les données locales. Pour restaurer une sauvegarde sur un
+  appareil neuf. Demande confirmation.
 
 L'app réclame le stockage persistant au démarrage (`navigator.storage.persist()`),
 demande à iOS de ne pas évincer les photos sous pression disque, et affiche dans
