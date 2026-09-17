@@ -36,13 +36,44 @@ export function setPinnedDay(n) { const d = load(); d.pinnedDay = n; save(); }
 export function exportJSON(photos) {
   return JSON.stringify({ ...load(), photos: photos || [], exportedAt: new Date().toISOString() }, null, 2);
 }
-// Renvoie les photos trouvées dans le fichier ; l'appelant les réinjecte dans IndexedDB.
-export function importJSON(txt) {
+// Ce que contient un fichier, avant de décider quoi en faire.
+export function inspectJSON(txt) {
   const o = JSON.parse(txt);
   if (!o || typeof o !== "object") throw new Error("Fichier illisible");
-  const { photos, ...rest } = o;
-  cache = { ...DEFAULT(), ...rest };
-  save();
+  return {
+    data: o,
+    coches: Object.keys(o.done || {}).length,
+    resas: Object.keys(o.todos || {}).length,
+    notes: Object.keys(o.notes || {}).length,
+    photos: (o.photos || []).length,
+    date: o.exportedAt || null,
+  };
+}
+
+// mode "merge"   : on additionne — c'est le cas du carnet tenu à deux.
+// mode "replace" : on écrase — c'est la restauration d'une sauvegarde sur un appareil neuf.
+// Renvoie les photos trouvées ; l'appelant les réinjecte dans IndexedDB (elles se
+// fusionnent toujours par identifiant, un même cliché importé deux fois ne se duplique pas).
+export function importJSON(txt, mode = "merge") {
+  const { data } = inspectJSON(txt);
+  const { photos, ...rest } = data;
+  if (mode === "replace") {
+    cache = { ...DEFAULT(), ...rest };
+    save();
+    return photos || [];
+  }
+  const d = load(), inc = { ...DEFAULT(), ...rest };
+  d.done = { ...d.done, ...inc.done };        // une étape cochée par l'un ou l'autre reste cochée
+  d.todos = { ...d.todos, ...inc.todos };
+  for (const [date, venue] of Object.entries(inc.notes || {})) {
+    const mienne = (d.notes[date] || "").trim(), leur = (venue || "").trim();
+    if (!leur) continue;
+    if (!mienne) d.notes[date] = leur;
+    // Deux notes pour le même jour : on garde les deux. Perdre la sienne en important
+    // celle de l'autre serait le pire résultat possible.
+    else if (mienne !== leur && !mienne.includes(leur)) d.notes[date] = mienne + "\n———\n" + leur;
+  }
+  save();                                      // le jour épinglé reste celui de cet appareil
   return photos || [];
 }
 export function reset() { cache = DEFAULT(); save(); }

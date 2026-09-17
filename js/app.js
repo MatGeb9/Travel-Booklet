@@ -242,6 +242,7 @@ function viewPrep() {
       <div class="card"><div class="sub" style="line-height:1.5">Vos coches, vos notes et vos photos vivent sur cet iPhone. Exportez de temps en temps dans Fichiers ou iCloud — le fichier contient les photos, il peut donc peser lourd.</div>
         <button class="btn big" data-action="export">Exporter mes notes</button>
         <button class="btn big" data-action="import">Importer une sauvegarde</button>
+        <div class="dim" style="margin:-4px 4px 4px">Vous pourrez choisir de fusionner avec vos données ou de les remplacer.</div>
         <input type="file" id="importfile" accept="application/json,.json" hidden/>
         <button class="link danger" style="width:100%;margin-top:4px" data-action="reset">Tout effacer</button>
         <div class="dim" style="text-align:center;margin-top:8px">Carnet ${esc(BUILD)} · ${esc(TRIP.dates)}</div></div>
@@ -368,6 +369,11 @@ document.addEventListener("click", e => {
   if (a === "unpin") { store.setPinnedDay(null); return render(); }
   if (a === "export") return doExport();
   if (a === "import") return $("#importfile").click();
+  if (a === "import-merge") return appliquerImport("merge");
+  if (a === "import-replace") {
+    if (!confirm("Remplacer vos coches et vos notes par celles du fichier ? Vos données actuelles seront perdues.")) return;
+    return appliquerImport("replace");
+  }
   if (a === "reset") {
     if (confirm("Effacer vos coches, vos notes et vos photos ? Le carnet lui-même reste intact.")) {
       store.reset();
@@ -443,21 +449,56 @@ async function viewPhoto(id) {
 document.addEventListener("input", e => {
   if (e.target.id === "note") store.setNote(e.target.dataset.date, e.target.value);
 });
+let fichierImport = null;   // contenu du fichier choisi, en attente du choix fusionner/remplacer
+
 document.addEventListener("change", e => {
   if (e.target.id === "importfile" && e.target.files[0]) {
-    const f = e.target.files[0], r = new FileReader();
-    r.onload = async () => {
-      try {
-        const shots = store.importJSON(r.result);
-        await photos.importAll(shots);
-        await photos.init(TRIP.id);
-        render();
-        toast(shots.length ? `Sauvegarde importée · ${shots.length} photo(s)` : "Sauvegarde importée");
-      } catch (err) { toast("Fichier illisible"); }
+    const r = new FileReader();
+    r.onload = () => {
+      try { proposerImport(r.result, store.inspectJSON(r.result)); }
+      catch (err) { toast("Fichier illisible"); }
     };
-    r.readAsText(f);
+    r.readAsText(e.target.files[0]);
+    e.target.value = "";     // permet de rechoisir le même fichier ensuite
   }
 });
+
+// On n'écrase jamais sans demander : un import qui remplace efface les coches et les
+// notes de celui qui importe, ce qui est exactement l'inverse du but quand on tient le
+// carnet à deux.
+function proposerImport(txt, info) {
+  fichierImport = txt;
+  const m = document.createElement("div"); m.className = "modal"; m.dataset.action = "close-modal";
+  const quand = info.date ? new Date(info.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : null;
+  m.innerHTML = `<div class="sheet" data-action="stop">
+    <div class="row"><div class="grow"><div class="title">Importer cette sauvegarde</div>
+      ${quand ? `<div class="dim">Exportée le ${esc(quand)}</div>` : ""}</div>
+      <button class="link strong" data-action="close-modal">Annuler</button></div>
+    <p class="sub">Le fichier contient <b>${info.coches} étape(s) cochée(s)</b>, ${info.resas} réservation(s),
+      ${info.notes} note(s) et <b>${info.photos} photo(s)</b>.</p>
+    <button class="btn big primary" data-action="import-merge">Fusionner avec mes données</button>
+    <div class="dim" style="margin:-4px 4px 10px">Additionne les deux carnets. Les coches s'ajoutent, les notes d'un même jour sont conservées toutes les deux, les photos se cumulent. À utiliser pour mettre en commun deux téléphones.</div>
+    <button class="btn big" data-action="import-replace">Remplacer mes données</button>
+    <div class="dim" style="margin:-4px 4px 0">Efface vos coches et vos notes actuelles. À utiliser pour restaurer une sauvegarde sur un appareil neuf.</div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function appliquerImport(mode) {
+  if (!fichierImport) return;
+  const txt = fichierImport; fichierImport = null;
+  document.querySelector(".modal")?.remove();
+  try {
+    const shots = store.importJSON(txt, mode);
+    if (shots.length) toast(`Import de ${shots.length} photo(s)…`);
+    await photos.importAll(shots);
+    await photos.init(TRIP.id);
+    render();
+    toast(mode === "merge" ? "Carnets fusionnés" : "Sauvegarde restaurée");
+  } catch (err) {
+    toast(err && err.name === "QuotaExceededError" ? "Plus de place pour les photos importées" : "Import impossible");
+  }
+}
 async function doExport() {
   if (photos.total()) toast("Préparation de l'export…");
   let shots = [];
