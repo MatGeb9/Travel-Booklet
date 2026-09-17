@@ -18,6 +18,11 @@ en cours marquée **MAINTENANT** en rouge, la suivante **À SUIVRE** en or. Les
 conseils du jour sont au-dessus, la barre de progression compte les étapes faites.
 Une étape se coche d'un pouce ; on la touche pour lire le détail complet.
 
+> Une étape sans heure — « Toute la journée », « Le soir » — hérite de l'heure de la
+> précédente et n'est atteinte que lorsque celle-ci est cochée : l'ordre de la liste,
+> piloté par vos coches, prend le relais de l'horloge. Sans ça, une journée dont les
+> étapes n'ont pas d'horaire fige le repère sur la première.
+
 > L'heure est toujours lue **à l'heure de Pékin**, jamais celle du téléphone : le
 > carnet est écrit en heure locale chinoise, et un téléphone resté à l'heure
 > d'Europe afficherait le mauvais créneau — voire le mauvais jour.

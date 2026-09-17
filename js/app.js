@@ -44,14 +44,33 @@ function currentDay() {
 }
 
 // Repère « maintenant » / « à suivre » dans la journée affichée, seulement si c'est vraiment aujourd'hui.
+// Repère « maintenant » / « à suivre ».
+//
+// L'horloge seule ne suffit pas : certaines étapes n'ont pas d'heure, parce que le carnet
+// ne la connaît pas (« − 3 h », « Le soir ») ou parce qu'elle n'a pas de sens (« Toute la
+// journée »). Avec un repère purement horaire, le dernier jour se figeait : trois étapes
+// sur quatre sans heure, donc plus rien ne passait jamais en « à suivre ».
+//
+// Une étape sans heure hérite donc de l'heure de la précédente et n'est atteinte que
+// lorsque celle-ci est cochée : c'est l'ordre de la liste, piloté par vos coches, qui
+// prend le relais de l'horloge. Une étape écartée par un arbitrage, ou présentée comme
+// une variante de toute la journée, ne compte pas — ce n'est pas une étape suivante.
 function marks(day) {
   const p = tripPosition(TRIP());
   if (p.phase !== "during" || p.day !== day.n) return {};
-  const timed = day.items.filter(i => i.t);
-  let now = null, next = null;
-  for (const it of timed) {
-    if (toMinutes(it.t) <= p.minutes) now = it.id;
+  const hors = ecartees(day.n);
+  const compte = it => !hors.has(it.id) && it.tag !== "AU CHOIX";
+
+  let herite = null, precedenteFaite = true, now = null, next = null;
+  for (const it of day.items) {
+    if (!compte(it)) continue;
+    const minute = it.t ? toMinutes(it.t) : herite;
+    // atteinte : l'heure est passée ; et pour une étape sans heure, la précédente est faite
+    const atteinte = minute !== null && minute <= p.minutes && (it.t ? true : precedenteFaite);
+    if (atteinte) now = it.id;
     else if (!next) next = it.id;
+    if (it.t) herite = minute;
+    precedenteFaite = store.isDone(it.id);
   }
   return { now, next, minutes: p.minutes };
 }

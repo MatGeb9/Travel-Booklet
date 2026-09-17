@@ -2332,19 +2332,23 @@
      "AF117"
     ],
     [
-     "Départ",
-     "Pudong"
+     "Décollage",
+     "10 h 30"
     ],
     [
-     "Puis",
-     "AF4604"
+     "Paris",
+     "19 h"
     ],
     [
      "Marge",
-     "3 h"
+     "2 h"
     ]
    ],
    "tips": [
+    {
+     "title": "Le compte du dernier jour",
+     "text": "Départ de Lujiazui 7 h 45, Pudong 8 h 30, décollage 10 h 30 : deux heures de marge, alors que le carnet en recommandait trois et prévient que les axes vers l'aéroport saturent le deuxième jour d'un week-end férié.\n\nPuis 1 h 45 de correspondance à Roissy, de 19 h à 20 h 45. C'est jouable, mais les deux marges sont serrées : le moindre retard d'AF117 met AF4604 en jeu."
+    },
     {
      "title": "La veille au soir",
      "text": "Vider le solde Alipay si vous l'avez rechargé, garder 100 CNY en liquide pour le trajet, et sortir les batteries de drone et de power bank des valises de soute — elles voyagent en cabine, sans exception.\n\nVérifier aussi que la fiche d'enregistrement de police du dernier hôtel a bien été faite : c'est le seul papier qui puisse être demandé à la sortie."
@@ -2360,26 +2364,24 @@
     },
     {
      "id": "d15b",
-     "t": null,
-     "label": "− 3 h",
+     "t": "08:30",
      "title": "À l'aéroport",
-     "text": "Enregistrement, puis détaxe si vous avez dépassé 500 CNY dans un même magasin signalé « Tax Free » — le formulaire se fait tamponner à la douane avant le contrôle de sécurité, pas après."
+     "text": "Arrivée à Pudong vers 8 h 30 si vous partez de Lujiazui à 7 h 45 — la ligne 2 met 45 min. Cela laisse 2 h avant le décollage, pas les 3 h que recommande le carnet : pour la marge complète, partir de Lujiazui vers 6 h 45.\n\nEnregistrement, puis détaxe si vous avez dépassé 500 CNY dans un même magasin signalé « Tax Free » — le formulaire se fait tamponner à la douane avant le contrôle de sécurité, pas après."
     },
     {
      "id": "d15c",
-     "t": null,
-     "label": "Milieu de journée",
+     "t": "10:30",
      "title": "AF117 Shanghai → Paris Charles-de-Gaulle",
      "tag": "VOL",
-     "text": "Environ 12 h de vol, arrivée en fin d'après-midi. Vérifiez l'heure exacte sur votre réservation : comme AF4604 part le même jour, le décollage de Shanghai est forcément en milieu de journée, ce qui ne laisse aucune marge pour une dernière sortie."
+     "text": "Décollage à 10 h 30, heure de Pékin. Arrivée à Paris Charles-de-Gaulle à 19 h, heure de Paris.\n\nLe dernier matin est donc un transfert, pas une journée : ne rien planifier après le petit-déjeuner."
     },
     {
      "id": "d15d",
      "t": null,
-     "label": "Le soir",
+     "label": "20 h 45 à Paris",
      "title": "AF4604 Paris → Luxembourg",
      "tag": "VOL",
-     "text": "Environ 1 h de vol, arrivée dans la soirée."
+     "text": "Décollage à 20 h 45, heure de Paris, arrivée à Luxembourg dans la soirée. La correspondance à CDG est d'1 h 45 entre l'arrivée d'AF117 et ce départ — court pour un transfert depuis un vol international, avec un nouveau contrôle à passer."
     }
    ]
   }
