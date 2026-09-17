@@ -1,50 +1,96 @@
-// Persistance locale (localStorage) : étapes cochées, notes libres par jour, réglages.
-// Export/import JSON pour sauvegarder dans Fichiers / iCloud.
-const KEY = "carnet.chine.v1";
+// Persistance locale, rangée par voyage. Vos traces (coches, notes, dépenses, arbitrages)
+// ne quittent jamais l'appareil ; les photos, elles, vivent dans IndexedDB (voir photos.js).
+const KEY = "carnet.v2";
+const LEGACY = "carnet.chine.v1";        // format mono-voyage, avant le multi-carnet
+const LEGACY_TRIP = "chine-2026-09";
 
-const DEFAULT = () => ({
-  schema: 1,
-  done: {},        // "d4b" -> true            (étapes cochées)
-  todos: {},       // "t-spa" -> true          (réservations faites)
-  notes: {},       // "2026-09-15" -> "texte"  (notes libres du jour)
-  pinnedDay: null, // n° de jour figé manuellement, sinon on suit l'horloge
-});
+const BLANK = () => ({ done: {}, todos: {}, notes: {}, pinnedDay: null, depenses: [], choix: {} });
+const DEFAULT = () => ({ schema: 2, current: null, trips: {} });
 
 let cache = null;
+let tripId = LEGACY_TRIP;
+
+// Migration depuis l'ancien format. On ne supprime JAMAIS l'ancienne clé : si quoi que ce
+// soit se passe mal, les coches et les notes du voyage en cours sont encore là, intactes.
+function migrate(d) {
+  if (d.trips[LEGACY_TRIP]) return d;
+  let vieux = null;
+  try { vieux = JSON.parse(localStorage.getItem(LEGACY) || "null"); } catch (e) { vieux = null; }
+  if (!vieux || typeof vieux !== "object") return d;
+  d.trips[LEGACY_TRIP] = {
+    ...BLANK(),
+    done: vieux.done || {}, todos: vieux.todos || {},
+    notes: vieux.notes || {}, pinnedDay: vieux.pinnedDay ?? null,
+  };
+  d.current = d.current || LEGACY_TRIP;
+  d.migratedFrom = LEGACY;
+  return d;
+}
+
 export function load() {
   if (cache) return cache;
-  try { const raw = localStorage.getItem(KEY); cache = raw ? { ...DEFAULT(), ...JSON.parse(raw) } : DEFAULT(); }
-  catch (e) { cache = DEFAULT(); }
+  try {
+    const brut = localStorage.getItem(KEY);
+    cache = brut ? { ...DEFAULT(), ...JSON.parse(brut) } : DEFAULT();
+  } catch (e) { cache = DEFAULT(); }
+  cache.trips = cache.trips || {};
+  cache = migrate(cache);
   return cache;
 }
 export function save() { if (cache) try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch (e) {} }
 
-export const isDone = id => !!load().done[id];
-export function toggleDone(id) { const d = load(); d.done[id] ? delete d.done[id] : (d.done[id] = true); save(); }
-export const isTodoDone = id => !!load().todos[id];
-export function toggleTodo(id) { const d = load(); d.todos[id] ? delete d.todos[id] : (d.todos[id] = true); save(); }
-export const getNote = date => load().notes[date] || "";
-export function setNote(date, txt) {
-  const d = load();
-  txt.trim() ? (d.notes[date] = txt) : delete d.notes[date];
+// --- voyage courant ---
+export function setTrip(id) { tripId = id; const d = load(); d.trips[id] = { ...BLANK(), ...(d.trips[id] || {}) }; d.current = id; save(); }
+export const getTrip = () => tripId;
+export const lastOpened = () => load().current;
+const T = () => { const d = load(); d.trips[tripId] = { ...BLANK(), ...(d.trips[tripId] || {}) }; return d.trips[tripId]; };
+
+// --- étapes, réservations, notes ---
+export const isDone = id => !!T().done[id];
+export function toggleDone(id) { const t = T(); t.done[id] ? delete t.done[id] : (t.done[id] = true); save(); }
+export const isTodoDone = id => !!T().todos[id];
+export function toggleTodo(id) { const t = T(); t.todos[id] ? delete t.todos[id] : (t.todos[id] = true); save(); }
+export const getNote = date => T().notes[date] || "";
+export function setNote(date, txt) { const t = T(); txt.trim() ? (t.notes[date] = txt) : delete t.notes[date]; save(); }
+export const getPinnedDay = () => T().pinnedDay;
+export function setPinnedDay(n) { T().pinnedDay = n; save(); }
+
+// --- arbitrages : quelle branche a été retenue pour un choix donné ---
+export const getChoix = n => T().choix[n] ?? null;
+export function setChoix(n, i) { const t = T(); i === null ? delete t.choix[n] : (t.choix[n] = i); save(); }
+
+// --- dépenses, toujours stockées en monnaie locale ---
+export const getDepenses = () => T().depenses || [];
+export function addDepense(d) {
+  const t = T();
+  t.depenses = [{ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()), ...d }, ...(t.depenses || [])];
   save();
 }
-export const getPinnedDay = () => load().pinnedDay;
-export function setPinnedDay(n) { const d = load(); d.pinnedDay = n; save(); }
+export function delDepense(id) { const t = T(); t.depenses = (t.depenses || []).filter(x => x.id !== id); save(); }
+export const totalDepenses = () => getDepenses().reduce((a, d) => a + (+d.cny || 0), 0);
 
-// L'export embarque les photos en base64, comme Atlas : un seul fichier à ranger.
+// --- export / import ---
 export function exportJSON(photos) {
-  return JSON.stringify({ ...load(), photos: photos || [], exportedAt: new Date().toISOString() }, null, 2);
+  return JSON.stringify({ schema: 2, tripId, trip: T(), photos: photos || [], exportedAt: new Date().toISOString() }, null, 2);
 }
-// Ce que contient un fichier, avant de décider quoi en faire.
+
+// Accepte les deux formats : l'ancien export mono-voyage et le nouveau.
+function normalise(o) {
+  if (o.trip) return { id: o.tripId || LEGACY_TRIP, data: { ...BLANK(), ...o.trip } };
+  const { photos, exportedAt, schema, ...reste } = o;      // ancien export à plat
+  return { id: LEGACY_TRIP, data: { ...BLANK(), ...reste } };
+}
+
 export function inspectJSON(txt) {
   const o = JSON.parse(txt);
   if (!o || typeof o !== "object") throw new Error("Fichier illisible");
+  const { data, id } = normalise(o);
   return {
-    data: o,
-    coches: Object.keys(o.done || {}).length,
-    resas: Object.keys(o.todos || {}).length,
-    notes: Object.keys(o.notes || {}).length,
+    data: o, tripId: id,
+    coches: Object.keys(data.done || {}).length,
+    resas: Object.keys(data.todos || {}).length,
+    notes: Object.keys(data.notes || {}).length,
+    depenses: (data.depenses || []).length,
     photos: (o.photos || []).length,
     date: o.exportedAt || null,
   };
@@ -52,28 +98,31 @@ export function inspectJSON(txt) {
 
 // mode "merge"   : on additionne — c'est le cas du carnet tenu à deux.
 // mode "replace" : on écrase — c'est la restauration d'une sauvegarde sur un appareil neuf.
-// Renvoie les photos trouvées ; l'appelant les réinjecte dans IndexedDB (elles se
-// fusionnent toujours par identifiant, un même cliché importé deux fois ne se duplique pas).
 export function importJSON(txt, mode = "merge") {
-  const { data } = inspectJSON(txt);
-  const { photos, ...rest } = data;
-  if (mode === "replace") {
-    cache = { ...DEFAULT(), ...rest };
-    save();
-    return photos || [];
-  }
-  const d = load(), inc = { ...DEFAULT(), ...rest };
-  d.done = { ...d.done, ...inc.done };        // une étape cochée par l'un ou l'autre reste cochée
-  d.todos = { ...d.todos, ...inc.todos };
-  for (const [date, venue] of Object.entries(inc.notes || {})) {
-    const mienne = (d.notes[date] || "").trim(), leur = (venue || "").trim();
+  const o = JSON.parse(txt);
+  const { data: venu, id } = normalise(o);
+  const d = load();
+  const cible = id || tripId;
+  if (mode === "replace") { d.trips[cible] = { ...BLANK(), ...venu }; save(); return o.photos || []; }
+
+  const t = { ...BLANK(), ...(d.trips[cible] || {}) };
+  t.done = { ...t.done, ...venu.done };          // une étape cochée par l'un ou l'autre reste cochée
+  t.todos = { ...t.todos, ...venu.todos };
+  t.choix = { ...t.choix, ...venu.choix };
+  for (const [date, apporte] of Object.entries(venu.notes || {})) {
+    const mienne = (t.notes[date] || "").trim(), leur = (apporte || "").trim();
     if (!leur) continue;
-    if (!mienne) d.notes[date] = leur;
+    if (!mienne) t.notes[date] = leur;
     // Deux notes pour le même jour : on garde les deux. Perdre la sienne en important
     // celle de l'autre serait le pire résultat possible.
-    else if (mienne !== leur && !mienne.includes(leur)) d.notes[date] = mienne + "\n———\n" + leur;
+    else if (mienne !== leur && !mienne.includes(leur)) t.notes[date] = mienne + "\n———\n" + leur;
   }
-  save();                                      // le jour épinglé reste celui de cet appareil
-  return photos || [];
+  const vus = new Set((t.depenses || []).map(x => x.id));
+  t.depenses = [...(t.depenses || []), ...(venu.depenses || []).filter(x => !vus.has(x.id))]
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  d.trips[cible] = t;
+  save();                                        // le jour épinglé reste celui de cet appareil
+  return o.photos || [];
 }
-export function reset() { cache = DEFAULT(); save(); }
+
+export function reset() { const d = load(); d.trips[tripId] = BLANK(); save(); }

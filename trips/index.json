@@ -1,0 +1,14 @@
+{
+ "trips": [
+  {
+   "id": "chine-2026-09",
+   "file": "trips/chine-2026-09.json",
+   "title": "Chine",
+   "han": "中国",
+   "subtitle": "Shanghai · Chongqing · Chengdu · Xi'an",
+   "dates": "11 – 26 septembre 2026",
+   "firstDay": "2026-09-12",
+   "lastDay": "2026-09-26"
+  }
+ ]
+}

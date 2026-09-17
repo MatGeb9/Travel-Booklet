@@ -70,6 +70,9 @@ h2:first-child{margin-top:4px}
 .step.done .body{opacity:.5}
 .step.done .title{text-decoration:line-through;text-decoration-color:var(--dim)}
 .step.done .dot{background:var(--green)}
+.step.ecarte .body{opacity:.4}
+.step.ecarte .title{text-decoration:line-through;text-decoration-color:var(--dim)}
+.step.ecarte .dot{background:var(--line)}
 .step.now .body{box-shadow:inset 0 0 0 2px var(--red)}
 .step.now .dot{background:var(--red);box-shadow:0 0 0 4px rgba(227,50,45,.22)}
 .step.next .body{box-shadow:inset 0 0 0 1px var(--gold)}
@@ -160,15 +163,15 @@ textarea.field{resize:vertical;min-height:84px;line-height:1.45}
 .phrase .han{font-size:22px;font-weight:700;line-height:1.25}
 .phrase .fr{font-size:14px;color:#d8dce3;margin-top:2px}
 .phrase .sub{font-size:12px;color:var(--dim);margin-top:2px}
-.show{position:fixed;inset:0;background:#000;z-index:80;display:flex;flex-direction:column;
+.fullcard{position:fixed;inset:0;background:#000;z-index:80;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:24px;text-align:center}
-.show .han{font-size:clamp(46px,15vw,96px);font-weight:800;line-height:1.15;color:#fff}
-.show .fr{font-size:19px;color:var(--gold);margin-top:18px;font-weight:600}
-.show .sub{font-size:14px;color:var(--sub);margin-top:8px;max-width:30ch}
-.show .close{position:absolute;top:max(18px,env(safe-area-inset-top));right:18px;
+.fullcard .han{font-size:clamp(46px,15vw,96px);font-weight:800;line-height:1.15;color:#fff}
+.fullcard .fr{font-size:19px;color:var(--gold);margin-top:18px;font-weight:600}
+.fullcard .sub{font-size:14px;color:var(--sub);margin-top:8px;max-width:30ch}
+.fullcard .close{position:absolute;top:max(18px,env(safe-area-inset-top));right:18px;
   background:var(--card2);border:none;color:var(--txt);border-radius:20px;padding:9px 16px;font-size:15px}
 .showacts{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));display:flex;gap:10px}
-.show .copy{background:var(--card2);border:none;color:var(--txt);border-radius:20px;
+.fullcard .copy{background:var(--card2);border:none;color:var(--txt);border-radius:20px;
   padding:11px 20px;font-size:15px;text-decoration:none;display:inline-block}
 
 /* ---------- recherche ---------- */
